@@ -28,8 +28,17 @@ Bisa dites lokal dengan `python3 -m http.server` lalu buka http://localhost:8000
 | `lspd_penal_calculations` | Hasil kalkulasi penal yang disimpan |
 | `lspd_recent_records` | Log record yang terakhir dibuka/disimpan |
 | `lspd_settings` | Data officer + tema |
+| `lspd_accounts` | Akun lokal (password di-hash PBKDF2-SHA256 + salt, tidak pernah plain text) |
+| `lspd_session` | Sesi login (sessionStorage; localStorage 7 hari jika "Keep me signed in") |
 
 Draft = report dengan `status: "draft"`; autosave 0,7 detik setelah mengetik.
+
+## Login (V1, lokal)
+- Akun pertama di sebuah browser otomatis menjadi **administrator** (bisa reset password dan hapus akun lain di Settings).
+- Password minimal 8 karakter, di-hash dengan Web Crypto (butuh HTTPS atau localhost; GitHub Pages sudah HTTPS).
+- 5x salah password = jeda 30 detik. Password tidak bisa dipulihkan, hanya di-reset admin.
+- Backup JSON **tidak** memuat akun/password.
+- **Ini bukan keamanan sungguhan.** Situs statis: siapa pun yang membuka URL bisa membuat akun sendiri, dan siapa pun yang punya akses ke browser bisa membaca/menghapus data lewat DevTools. Akun tidak tersinkron antar perangkat. Untuk kontrol akses nyata perlu server (V2).
 
 ## Menuju V2 (database)
 UI hanya memanggil `Store.saveIncident / getIncidents / getIncident / updateIncident / deleteIncident`,

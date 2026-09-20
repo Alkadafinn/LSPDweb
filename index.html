@@ -55,6 +55,7 @@
         <span class="top-clock" id="topClock"></span>
         <span class="top-officer" id="topOfficer"></span>
         <span class="tag-local" title="Data is stored only in this browser">LOCAL MODE</span>
+        <button type="button" class="btn btn-sm signout" id="btnSignOut">Sign out</button>
       </div>
     </header>
 
@@ -87,6 +88,7 @@
     <main class="main" id="view" tabindex="-1"></main>
   </div>
 
+  <div class="auth" id="auth" hidden></div>
   <div id="toasts" aria-live="polite"></div>
 
   <dialog id="dlgConfirm" aria-labelledby="dlgConfirmTitle">
@@ -97,6 +99,15 @@
         <button class="btn" value="cancel" id="dlgConfirmCancel">Cancel</button>
         <button class="btn btn-primary" value="ok" id="dlgConfirmOk">Confirm</button>
       </div>
+    </form>
+  </dialog>
+
+  <dialog id="dlgPrompt" aria-labelledby="dlgPromptTitle">
+    <form method="dialog">
+      <div class="dlg-head"><h2 id="dlgPromptTitle"></h2></div>
+      <div class="dlg-body"><label class="lbl" id="dlgPromptLabel" for="dlgPromptInput"></label>
+        <input class="input" id="dlgPromptInput" type="password" autocomplete="new-password"></div>
+      <div class="dlg-foot dlg-foot-rev"><button class="btn btn-primary" value="ok" id="dlgPromptOk">Save</button><button class="btn" value="cancel">Cancel</button></div>
     </form>
   </dialog>
 
@@ -114,6 +125,7 @@
   <script src="js/penal-data.js"></script>
   <script src="js/storage.js"></script>
   <script src="js/ui.js"></script>
+  <script src="js/auth.js"></script>
   <script src="js/records.js"></script>
   <script src="js/penal.js"></script>
   <script src="js/exporter.js"></script>
@@ -121,6 +133,7 @@
   <script src="js/incident.js"></script>
   <script src="js/surveillance.js"></script>
   <script src="js/views.js"></script>
+  <script src="js/auth-view.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>
