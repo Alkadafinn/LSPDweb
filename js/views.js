@@ -133,6 +133,7 @@
   /* ---------- settings ---------- */
   const settings = {
     mount(el) {
+      const self = this;
       const s = Store.getSettings(), o = s.officer;
       const fld = (id, label, val, ph) => '<label class="field"><span class="lbl">' + label + '</span><input class="input" id="' + id + '" value="' + esc(val) + '" placeholder="' + esc(ph || '') + '" autocomplete="off"></label>';
       el.innerHTML =
@@ -143,30 +144,92 @@
               fld('sName', 'Name', o.name, 'Lastname, Firstname') + fld('sBadge', 'Badge number', o.badge) + fld('sUnit', 'Unit', o.unit) +
               fld('sDivision', 'Division', o.division) + fld('sSup', 'Supervisor', o.supervisor, 'Lastname, Firstname') + '</div>' +
               '<div class="form-actions"><button class="btn btn-primary" type="submit">Save officer information</button></div></form></section>' +
+          '<section class="panel" id="accountPanel"></section>' +
           '<section class="panel"><div class="panel-head"><h2>Appearance</h2></div><div class="panel-body">' +
             '<fieldset class="radios"><legend class="lbl">Theme</legend>' +
             '<label><input type="radio" name="theme" value="light"' + (s.theme === 'light' ? ' checked' : '') + '> Light</label>' +
             '<label><input type="radio" name="theme" value="dark"' + (s.theme === 'dark' ? ' checked' : '') + '> Dark</label></fieldset>' +
             '<p class="hint">Report forms always stay white so exports and prints look the same.</p></div></section>' +
           '<section class="panel" id="storagePanel"></section>' +
+          '<section class="panel" id="accountsAdminPanel" hidden></section>' +
           '<section class="panel"><div class="panel-head"><h2>About</h2></div><div class="panel-body about">' +
             '<p><strong>Los Santos Police Department Record Management System</strong><br>Version ' + APP_VERSION + ' (V1, local mode)</p>' +
-            '<p>This system runs entirely in your browser. Nothing is sent to a server. Data is only available on the browser and device you are using, and clearing your browser data removes it. Use Export backup to keep a copy.</p>' +
+            '<p>This system runs entirely in your browser. Nothing is sent to a server. Data is only available on the browser and device you are using, and clearing your browser data removes it. Use Export backup to keep a copy. Backups do not include accounts or passwords.</p>' +
+            '<p>Sign-in is a local access gate. It identifies who is using this browser but is not a security boundary: anyone with access to this device or browser profile can read or delete the stored data.</p>' +
             '<table class="kv"><tbody>' +
               '<tr><th>Storage mode</th><td>LOCAL</td></tr><tr><th>Database</th><td>BROWSER LOCAL STORAGE</td></tr><tr><th>Server sync</th><td>DISABLED</td></tr></tbody></table></div></section>' +
         '</div>';
 
       $('#offForm', el).addEventListener('submit', e => {
         e.preventDefault();
-        const res = Store.saveSettings({ officer: { name: $('#sName').value.trim(), badge: $('#sBadge').value.trim(), unit: $('#sUnit').value.trim(), division: $('#sDivision').value.trim(), supervisor: $('#sSup').value.trim() } });
+        const officer = { name: $('#sName').value.trim(), badge: $('#sBadge').value.trim(), unit: $('#sUnit').value.trim(), division: $('#sDivision').value.trim(), supervisor: $('#sSup').value.trim() };
+        const res = Store.saveSettings({ officer: officer });
+        Auth.updateProfile({ displayName: officer.name, badge: officer.badge, unit: officer.unit, division: officer.division, supervisor: officer.supervisor });
         UI.toast(res.ok ? 'Officer information saved.' : 'Could not save settings.', res.ok ? '' : 'error');
+        self.drawAccount(el);
       });
       $$('input[name=theme]', el).forEach(r => r.addEventListener('change', () => {
         UI.applyTheme(r.value);
         Store.saveSettings({ theme: r.value });
       }));
       this.drawStorage(el);
+      this.drawAccount(el);
       document.title = 'Settings | LSPD RMS';
+    },
+
+    drawAccount(el) {
+      const me = Auth.current();
+      const panel = $('#accountPanel', el);
+      if (!me) { panel.innerHTML = ''; return; }
+      panel.innerHTML =
+        '<div class="panel-head"><h2>Account</h2></div><div class="panel-body">' +
+        '<table class="kv"><tbody>' +
+          '<tr><th>Signed in as</th><td>' + esc(me.displayName) + '</td></tr>' +
+          '<tr><th>Username</th><td>' + esc(me.username) + '</td></tr>' +
+          '<tr><th>Role</th><td>' + (me.role === 'admin' ? 'ADMINISTRATOR' : 'OFFICER') + '</td></tr>' +
+          '<tr><th>Last sign-in</th><td>' + esc(UI.fmtStamp(me.lastLoginAt) || 'This session') + '</td></tr></tbody></table>' +
+        '<form id="pwForm" class="form-grid" style="margin-top:16px" novalidate>' +
+          '<label class="field" style="grid-column:1/-1"><span class="lbl">Current password</span><input class="input" id="pwCur" type="password" autocomplete="current-password"></label>' +
+          '<label class="field"><span class="lbl">New password</span><input class="input" id="pwNew" type="password" autocomplete="new-password"></label>' +
+          '<label class="field"><span class="lbl">Confirm new password</span><input class="input" id="pwCon" type="password" autocomplete="new-password"></label>' +
+          '<div class="form-actions" style="grid-column:1/-1;margin-top:4px"><button class="btn btn-primary" type="submit">Change password</button></div></form></div>';
+      $('#pwForm', el).addEventListener('submit', async e => {
+        e.preventDefault();
+        const r = await Auth.changePassword($('#pwCur').value, $('#pwNew').value, $('#pwCon').value);
+        if (!r.ok) { UI.toast(r.error, 'error', 5000); return; }
+        UI.toast('Password changed.');
+        e.target.reset();
+      });
+
+      const adm = $('#accountsAdminPanel', el);
+      if (me.role !== 'admin') { adm.hidden = true; return; }
+      adm.hidden = false;
+      const list = Store.getAccounts();
+      adm.innerHTML = '<div class="panel-head"><h2>Accounts on this device</h2><span class="tag">' + list.length + '</span></div>' +
+        '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Name</th><th>Username</th><th>Role</th><th>Last sign-in</th><th class="col-act"><span class="sr">Actions</span></th></tr></thead><tbody>' +
+        list.map(a => '<tr><td>' + esc(a.displayName) + '</td><td class="mono">' + esc(a.username) + '</td><td>' + (a.role === 'admin' ? 'Administrator' : 'Officer') + '</td>' +
+          '<td class="muted">' + esc(UI.fmtStamp(a.lastLoginAt) || 'Never') + '</td><td class="col-act">' +
+          '<button type="button" class="btn btn-sm" data-reset="' + esc(a.id) + '">Reset password</button> ' +
+          (a.id === me.id ? '' : '<button type="button" class="btn btn-sm btn-danger" data-rmacc="' + esc(a.id) + '" aria-label="Delete account ' + esc(a.username) + '">' + icon('trash') + '</button>') +
+          '</td></tr>').join('') + '</tbody></table></div>';
+      adm.onclick = async e => {
+        const rs = e.target.closest('[data-reset]'), rm = e.target.closest('[data-rmacc]');
+        if (rs) {
+          const acc = Store.getAccount(rs.dataset.reset);
+          const pw = await UI.promptBox({ title: 'Reset password', label: 'New password for ' + acc.username + ' (8+ characters)', confirmText: 'Reset password' });
+          if (pw === null) return;
+          const r = await Auth.adminReset(acc.id, pw);
+          UI.toast(r.ok ? 'Password reset for ' + acc.username + '.' : r.error, r.ok ? '' : 'error', 5000);
+        }
+        if (rm) {
+          const acc = Store.getAccount(rm.dataset.rmacc);
+          const ok = await UI.confirmBox({ title: 'Delete account?', message: 'The account ' + acc.username + ' will be removed from this device. Reports it created are kept.', confirmText: 'Delete account', danger: true });
+          if (!ok) return;
+          const r = Auth.removeAccount(acc.id);
+          UI.toast(r.ok ? 'Account deleted.' : r.error, r.ok ? '' : 'error', 5000);
+          if (r.ok) settings.drawAccount(el);
+        }
+      };
     },
 
     drawStorage(el) {
@@ -212,8 +275,8 @@
         if (!ok) return;
         Store.clearAll();
         UI.applyTheme('light');
-        UI.toast('All local data cleared.');
-        settings.mount(el);
+        UI.toast('All local data cleared, including accounts.');
+        location.reload();
       });
     },
     unmount() {}

@@ -15,7 +15,9 @@
     surveillance: 'lspd_surveillance_reports',
     recent: 'lspd_recent_records',
     penal: 'lspd_penal_calculations',
-    settings: 'lspd_settings'
+    settings: 'lspd_settings',
+    accounts: 'lspd_accounts',
+    session: 'lspd_session'
   });
 
   const RECENT_LIMIT = 20;
@@ -97,6 +99,7 @@
   const incidents = collection(KEYS.incidents, 'incident');
   const surveillance = collection(KEYS.surveillance, 'surveillance');
   const penal = collection(KEYS.penal, 'penal');
+  const accounts = collection(KEYS.accounts, 'account');
 
   const Store = {
     KEYS: KEYS,
@@ -122,6 +125,36 @@
     getPenalCalculations: () => penal.list(),
     getPenalCalculation: id => penal.get(id),
     deletePenalCalculation: id => penal.remove(id),
+
+    /* Local accounts (V1 access gate). Password hashes never leave this browser and are excluded from backups. */
+    getAccounts: () => accounts.list(),
+    getAccount: id => accounts.get(id),
+    saveAccount: a => accounts.save(a),
+    deleteAccount: id => accounts.remove(id),
+
+    /* Session: sessionStorage by default, localStorage when "keep me signed in" is chosen. */
+    getSession() {
+      const stores = [sessionStorage, localStorage];
+      for (let i = 0; i < stores.length; i++) {
+        try {
+          const raw = stores[i].getItem(KEYS.session);
+          const s = raw ? JSON.parse(raw) : null;
+          if (s && s.userId) return s;
+        } catch (e) { /* ignore */ }
+      }
+      return null;
+    },
+    saveSession(sess, remember) {
+      try {
+        sessionStorage.removeItem(KEYS.session);
+        localStorage.removeItem(KEYS.session);
+        (remember ? localStorage : sessionStorage).setItem(KEYS.session, JSON.stringify(sess));
+        return { ok: true };
+      } catch (e) { return { ok: false, error: e }; }
+    },
+    clearSession() {
+      try { sessionStorage.removeItem(KEYS.session); localStorage.removeItem(KEYS.session); } catch (e) { /* ignore */ }
+    },
 
     /* Recent records (activity log of opened/saved records) */
     getRecent() {
@@ -221,6 +254,7 @@
         if (k && k.indexOf('lspd_') === 0) keys.push(k);
       }
       keys.forEach(k => localStorage.removeItem(k));
+      try { sessionStorage.removeItem(KEYS.session); } catch (e) { /* ignore */ }
       notify();
       return keys.length;
     }

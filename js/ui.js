@@ -92,6 +92,22 @@
     });
   }
 
+  /* Single-line input dialog. Resolves with the entered text, or null if cancelled. */
+  function promptBox(o) {
+    return new Promise(resolve => {
+      const d = $('#dlgPrompt'), inp = $('#dlgPromptInput');
+      $('#dlgPromptTitle').textContent = o.title || '';
+      $('#dlgPromptLabel').textContent = o.label || '';
+      $('#dlgPromptOk').textContent = o.confirmText || 'Save';
+      inp.type = o.type || 'text';
+      inp.value = '';
+      d.returnValue = '';
+      d.addEventListener('close', () => resolve(d.returnValue === 'ok' ? inp.value : null), { once: true });
+      d.showModal();
+      inp.focus();
+    });
+  }
+
   function applyTheme(theme) {
     document.documentElement.setAttribute('data-theme', theme === 'dark' ? 'dark' : 'light');
   }
@@ -138,7 +154,7 @@
     $: $, $$: $$, esc: esc, icon: icon, money: money, jailShort: jailShort, jailLong: jailLong,
     todayISO: todayISO, nowHM: nowHM, fmtDate: fmtDate, fmtStamp: fmtStamp, fmtBytes: fmtBytes,
     debounce: debounce, autosize: autosize, autosizeAll: autosizeAll,
-    toast: toast, confirmBox: confirmBox, applyTheme: applyTheme, readImage: readImage,
+    toast: toast, confirmBox: confirmBox, promptBox: promptBox, applyTheme: applyTheme, readImage: readImage,
     SEAL: SEAL
   };
 })(window);

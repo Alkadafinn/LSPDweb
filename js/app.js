@@ -29,7 +29,35 @@
     }
   }
 
+  /* ---------- sign-in gate ---------- */
+  function lock() {
+    if (current && current.unmount) current.unmount();
+    current = null;
+    closeDrawer();
+    document.body.classList.add('locked');
+    document.title = 'Sign in | LSPD RMS';
+    const host = $('#auth');
+    host.hidden = false;
+    AuthView.render(host, unlock);
+  }
+  function unlock() {
+    document.body.classList.remove('locked');
+    $('#auth').hidden = true;
+    $('#auth').innerHTML = '';
+    UI.applyTheme(Store.getSettings().theme);
+    updateChrome();
+    if (!location.hash || location.hash === '#/login') history.replaceState(null, '', '#/dashboard');
+    route();
+  }
+  function signOut() {
+    if (current && current.unmount) current.unmount();
+    current = null;
+    Auth.logout();
+    lock();
+  }
+
   function route() {
+    if (!Auth.current()) { lock(); return; }
     const p = parseHash();
     const r = resolve(p.parts, p.query);
     if (current && current.unmount) current.unmount();
@@ -64,7 +92,9 @@
     set('#cntDrafts', drafts);
     const o = Store.getSettings().officer;
     const off = $('#topOfficer');
-    off.textContent = o.name ? o.name + (o.badge ? ' / ' + o.badge : '') : 'Officer not set';
+    const me = Auth.current();
+    const nm = me ? me.displayName : o.name;
+    off.textContent = nm ? nm + ((me ? me.badge : o.badge) ? ' / ' + (me ? me.badge : o.badge) : '') : 'Officer not set';
   }
 
   function tick() {
@@ -82,12 +112,17 @@
     $('#menuBtn').addEventListener('click', () => document.body.classList.contains('nav-open') ? closeDrawer() : openDrawer());
     $('#scrim').addEventListener('click', closeDrawer);
     document.addEventListener('lspd:changed', updateChrome);
-    window.addEventListener('hashchange', route);
-    updateChrome();
+    window.addEventListener('hashchange', () => { if (!document.body.classList.contains('locked')) route(); });
+    $('#btnSignOut').addEventListener('click', signOut);
     tick();
     setInterval(tick, 20000);
-    if (!location.hash) history.replaceState(null, '', '#/dashboard');
-    route();
+    if (Auth.current()) {
+      updateChrome();
+      if (!location.hash) history.replaceState(null, '', '#/dashboard');
+      route();
+    } else {
+      lock();
+    }
   }
 
   document.addEventListener('DOMContentLoaded', init);
